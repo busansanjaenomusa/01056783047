@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>퇴직금 간이 계산기</title>
+  <style>
+    * { box-sizing: border-box; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; }
+    body { background-color: #f4f6f8; display: flex; justify-content: center; padding: 40px 16px; margin: 0; }
+    .card { background: #fff; width: 100%; max-width: 460px; padding: 28px; border-radius: 12px; box-shadow: 0 4px 16px rgba(0,0,0,0.08); }
+    h2 { margin: 0 0 20px; font-size: 20px; color: #1e293b; text-align: center; }
+    .field { margin-bottom: 16px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #475569; margin-bottom: 6px; }
+    .hint { font-weight: 400; color: #94a3b8; }
+    input { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 6px; font-size: 14px; outline: none; }
+    input:focus { border-color: #2563eb; }
+    button { width: 100%; padding: 12px; background: #2563eb; color: #fff; border: none; border-radius: 6px; font-size: 15px; font-weight: 600; cursor: pointer; margin-top: 8px; }
+    button:hover { background: #1d4ed8; }
+    .result-box { margin-top: 24px; padding: 16px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; display: none; }
+    .result-row { display: flex; justify-content: space-between; margin-bottom: 10px; font-size: 14px; color: #334155; }
+    .result-row:last-child { margin-bottom: 0; padding-top: 10px; border-top: 1px dashed #cbd5e1; font-weight: 700; color: #0f172a; font-size: 16px; }
+    .highlight { color: #2563eb; font-weight: 700; }
+    .notice { margin-top: 16px; font-size: 12px; color: #64748b; line-height: 1.6; }
+  </style>
+</head>
+<body>
+
+<div class="card">
+  <h2>퇴직금 간이 계산기</h2>
+
+  <div class="field">
+    <label for="joinDate">입사일</label>
+    <input type="date" id="joinDate">
+  </div>
+
+  <div class="field">
+    <label for="leaveDate">퇴직일 <span class="hint">(마지막 근무일의 다음 날)</span></label>
+    <input type="date" id="leaveDate">
+  </div>
+
+  <div class="field">
+    <label for="threeMonthsPay">퇴직 전 3개월 임금 총액 (원)</label>
+    <input type="number" id="threeMonthsPay" min="0" placeholder="예: 9000000">
+  </div>
+
+  <button type="button" onclick="calculate()">계산하기</button>
+
+  <div class="result-box" id="resultBox">
+    <div class="result-row">
+      <span>총 재직일수</span>
+      <span id="daysCount">0일</span>
+    </div>
+    <div class="result-row">
+      <span>평균임금 산정기간 일수</span>
+      <span id="periodDays">0일</span>
+    </div>
+    <div class="result-row">
+      <span>1일 평균임금</span>
+      <span id="avgWage">0원</span>
+    </div>
+    <div class="result-row">
+      <span>예상 퇴직금 (세전)</span>
+      <span class="highlight" id="severancePay">0원</span>
+    </div>
+  </div>
+
+  <p class="notice">
+    ※ 간이 계산입니다. 연간 상여금·연차수당의 3/12 가산, 평균임금이 통상임금보다 낮은 경우의 통상임금 적용(근로기준법 제2조 제2항), 산정기간 중 제외기간 등은 반영하지 않았습니다.
+  </p>
+</div>
+
+<script>
+  const DAY_MS = 1000 * 60 * 60 * 24;
+
+  // "YYYY-MM-DD"를 UTC 자정 기준 타임스탬프로 변환 (시간대 영향 제거)
+  function toUtc(value) {
+    const [y, m, d] = value.split('-').map(Number);
+    return Date.UTC(y, m - 1, d);
+  }
+
+  // 기준일로부터 n개월 전 날짜 (말일 보정: 5/31의 3개월 전 → 2/28 또는 2/29)
+  function monthsBefore(utcMs, n) {
+    const d = new Date(utcMs);
+    const y = d.getUTCFullYear();
+    const m = d.getUTCMonth() - n;
+    const lastDay = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+    return Date.UTC(y, m, Math.min(d.getUTCDate(), lastDay));
+  }
+
+  function calculate() {
+    const joinVal = document.getElementById('joinDate').value;
+    const leaveVal = document.getElementById('leaveDate').value;
+    const payVal = Number(document.getElementById('threeMonthsPay').value);
+    const resultBox = document.getElementById('resultBox');
+
+    if (!joinVal || !leaveVal || !payVal || payVal < 0) {
+      alert('모든 항목을 올바르게 입력해 주세요.');
+      return;
+    }
+
+    const start = toUtc(joinVal);
+    const end = toUtc(leaveVal);
+
+    if (end <= start) {
+      alert('퇴직일은 입사일 이후여야 합니다.');
+      return;
+    }
+
+    // 1. 총 재직일수 (입사일 ~ 퇴직일 전날)
+    const diffDays = Math.round((end - start) / DAY_MS);
+
+    // 계속근로기간 1년 미만: 퇴직금 지급 대상 아님 (근로자퇴직급여 보장법 제4조 제1항)
+    if (diffDays < 365) {
+      resultBox.style.display = 'none';
+      alert('계속근로기간이 1년 미만인 경우 법정 퇴직금 지급 대상이 아닙니다.');
+      return;
+    }
+
+    // 2. 평균임금 = 3개월 임금총액 ÷ 그 기간의 총 일수 (근로기준법 제2조 제1항 제6호)
+    const periodDays = Math.round((end - monthsBefore(end, 3)) / DAY_MS);
+    const dailyAvg = payVal / periodDays;
+
+    // 3. 퇴직금 = 1일 평균임금 × 30일 × (재직일수 ÷ 365)
+    const severance = Math.floor(dailyAvg * 30 * (diffDays / 365));
+
+    document.getElementById('daysCount').innerText = `${diffDays.toLocaleString()}일`;
+    document.getElementById('periodDays').innerText = `${periodDays}일`;
+    document.getElementById('avgWage').innerText =
+      `${dailyAvg.toLocaleString('ko-KR', { maximumFractionDigits: 2 })}원`;
+    document.getElementById('severancePay').innerText = `${severance.toLocaleString()}원`;
+
+    resultBox.style.display = 'block';
+  }
+</script>
+
+</body>
+</html>
