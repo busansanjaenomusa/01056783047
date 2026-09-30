@@ -3,304 +3,497 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>주휴수당 계산기</title>
+<title>산재 전문 공인노무사</title>
+<meta name="description" content="산업재해 보상 및 산업안전 전문 공인노무사 소개">
+<script>
+  // 첫 화면 깜빡임 방지: 저장된 테마를 렌더링 전에 적용
+  try {
+    const saved = localStorage.getItem('theme');
+    if (saved === 'dark' || saved === 'light') document.documentElement.dataset.theme = saved;
+  } catch (e) {}
+</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
 <style>
   :root {
-    --bg: #f4f6fb;
-    --card: #ffffff;
-    --text: #1c2233;
-    --muted: #6b7489;
-    --line: #e3e7f0;
-    --accent: #3b5bdb;
-    --accent-soft: #edf1ff;
-    --ok: #0c8a5f;
-    --ok-soft: #e6f6ef;
-    --warn: #b35c00;
-    --warn-soft: #fff4e5;
-    --err: #c92a2a;
-    --shadow: 0 10px 30px rgba(28, 34, 51, .08);
+    --bg: #f7f8fa;
+    --surface: #ffffff;
+    --surface-2: #eef1f6;
+    --text: #151a26;
+    --muted: #5d6679;
+    --line: #e2e6ee;
+    --accent: #1f5eff;
+    --accent-2: #0fb5a6;
+    --accent-soft: #e8eeff;
+    --on-accent: #ffffff;
+    --shadow: 0 12px 32px rgba(21, 26, 38, .07);
+    --radius: 18px;
+    --nav-bg: rgba(247, 248, 250, .8);
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #11141c;
-      --card: #1a1f2b;
-      --text: #e8ebf3;
-      --muted: #9aa3b8;
-      --line: #2c3342;
-      --accent: #7b93ff;
-      --accent-soft: #232b45;
-      --ok: #4cd4a0;
-      --ok-soft: #173229;
-      --warn: #ffb35c;
-      --warn-soft: #3a2a15;
-      --err: #ff8787;
-      --shadow: 0 10px 30px rgba(0, 0, 0, .35);
+      --bg: #0e1117; --surface: #161b24; --surface-2: #1d2430; --text: #e9edf5; --muted: #9ba5b9;
+      --line: #273042; --accent: #6f95ff; --accent-2: #3fd9c9; --accent-soft: #1d2744; --on-accent: #0e1117;
+      --shadow: 0 12px 32px rgba(0, 0, 0, .35); --nav-bg: rgba(14, 17, 23, .8);
     }
   }
   :root[data-theme="dark"] {
-    --bg: #11141c; --card: #1a1f2b; --text: #e8ebf3; --muted: #9aa3b8; --line: #2c3342;
-    --accent: #7b93ff; --accent-soft: #232b45; --ok: #4cd4a0; --ok-soft: #173229;
-    --warn: #ffb35c; --warn-soft: #3a2a15; --err: #ff8787; --shadow: 0 10px 30px rgba(0,0,0,.35);
+    --bg: #0e1117; --surface: #161b24; --surface-2: #1d2430; --text: #e9edf5; --muted: #9ba5b9;
+    --line: #273042; --accent: #6f95ff; --accent-2: #3fd9c9; --accent-soft: #1d2744; --on-accent: #0e1117;
+    --shadow: 0 12px 32px rgba(0, 0, 0, .35); --nav-bg: rgba(14, 17, 23, .8);
   }
 
   * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; scroll-padding-top: 72px; }
   body {
-    margin: 0;
-    min-height: 100vh;
-    background: var(--bg);
-    color: var(--text);
+    margin: 0; background: var(--bg); color: var(--text);
     font-family: "Noto Sans KR", system-ui, -apple-system, sans-serif;
-    line-height: 1.6;
-    display: flex;
-    justify-content: center;
-    padding: 40px 16px;
+    line-height: 1.7; -webkit-font-smoothing: antialiased;
+    transition: background-color .25s, color .25s;
   }
-  main { width: 100%; max-width: 480px; }
+  a { color: inherit; text-decoration: none; }
+  img, svg { display: block; }
+  .container { width: 100%; max-width: 1080px; margin: 0 auto; padding: 0 16px; }
+  @media (min-width: 768px) { .container { padding: 0 24px; } }
 
-  header { text-align: center; margin-bottom: 24px; }
-  header .badge {
-    display: inline-block; font-size: 13px; font-weight: 500; color: var(--accent);
-    background: var(--accent-soft); padding: 4px 12px; border-radius: 999px; margin-bottom: 10px;
+  /* ---------- Nav ---------- */
+  .nav {
+    position: sticky; top: 0; z-index: 50;
+    background: var(--nav-bg); backdrop-filter: saturate(160%) blur(12px);
+    -webkit-backdrop-filter: saturate(160%) blur(12px);
+    border-bottom: 1px solid var(--line);
   }
-  h1 { margin: 0; font-size: 28px; font-weight: 800; letter-spacing: -.02em; }
-  header p { margin: 6px 0 0; color: var(--muted); font-size: 15px; }
+  .nav .container { display: flex; align-items: center; justify-content: space-between; height: 64px; gap: 12px; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 17px; letter-spacing: -.01em; }
+  .brand-mark {
+    width: 32px; height: 32px; border-radius: 10px; display: grid; place-items: center;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff; font-size: 15px;
+  }
+  .nav-links { display: none; gap: 28px; font-size: 15px; color: var(--muted); }
+  .nav-links a:hover { color: var(--text); }
+  .nav-actions { display: flex; align-items: center; gap: 8px; }
+  .icon-btn {
+    width: 40px; height: 40px; border-radius: 12px; border: 1px solid var(--line);
+    background: var(--surface); color: var(--text); display: grid; place-items: center; cursor: pointer;
+    transition: border-color .15s, transform .1s;
+  }
+  .icon-btn:hover { border-color: var(--accent); }
+  .icon-btn:active { transform: scale(.95); }
+  .icon-btn svg { width: 20px; height: 20px; }
+  .theme-toggle .sun { display: none; }
+  :root[data-theme="dark"] .theme-toggle .sun { display: block; }
+  :root[data-theme="dark"] .theme-toggle .moon { display: none; }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) .theme-toggle .sun { display: block; }
+    :root:not([data-theme="light"]) .theme-toggle .moon { display: none; }
+  }
+  .menu-toggle { display: grid; }
+  .mobile-menu {
+    display: none; border-top: 1px solid var(--line); background: var(--surface);
+  }
+  .mobile-menu.open { display: block; }
+  .mobile-menu a { display: block; padding: 14px 16px; border-bottom: 1px solid var(--line); font-weight: 500; }
+  @media (min-width: 768px) {
+    .nav-links { display: flex; }
+    .menu-toggle, .mobile-menu, .mobile-menu.open { display: none; }
+  }
 
+  /* ---------- Buttons ---------- */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 13px 22px; border-radius: 12px; font-weight: 700; font-size: 15px;
+    border: 1px solid transparent; cursor: pointer; transition: transform .1s, filter .15s, border-color .15s;
+  }
+  .btn:active { transform: translateY(1px); }
+  .btn-primary { background: var(--accent); color: var(--on-accent); }
+  .btn-primary:hover { filter: brightness(1.08); }
+  .btn-ghost { background: var(--surface); border-color: var(--line); color: var(--text); }
+  .btn-ghost:hover { border-color: var(--accent); }
+
+  /* ---------- Hero ---------- */
+  .hero { position: relative; overflow: hidden; padding: 72px 0 64px; }
+  .hero::before {
+    content: ""; position: absolute; inset: -40% -20% auto auto; width: 620px; height: 620px;
+    background: radial-gradient(circle, var(--accent-soft) 0%, transparent 65%); z-index: -1;
+  }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 8px; font-size: 13px; font-weight: 700;
+    color: var(--accent); background: var(--accent-soft); padding: 6px 12px; border-radius: 999px;
+  }
+  .eyebrow .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-2); }
+  .hero h1 {
+    font-size: clamp(32px, 7vw, 56px); line-height: 1.2; letter-spacing: -.03em; font-weight: 800;
+    margin: 18px 0 16px; word-break: keep-all;
+  }
+  .hero h1 .grad {
+    background: linear-gradient(120deg, var(--accent), var(--accent-2));
+    -webkit-background-clip: text; background-clip: text; color: transparent;
+  }
+  .hero p.lead { font-size: clamp(16px, 2.4vw, 19px); color: var(--muted); max-width: 620px; margin: 0 0 28px; word-break: keep-all; }
+  .hero-cta { display: flex; flex-wrap: wrap; gap: 10px; }
+  .hero-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 36px; }
+  .hero-tags span {
+    font-size: 13px; color: var(--muted); border: 1px solid var(--line); background: var(--surface);
+    padding: 6px 12px; border-radius: 999px;
+  }
+
+  /* ---------- Sections ---------- */
+  section.block { padding: 72px 0; }
+  section.alt { background: var(--surface-2); }
+  .section-head { margin-bottom: 36px; max-width: 640px; }
+  .section-head .kicker { font-size: 13px; font-weight: 700; color: var(--accent); letter-spacing: .08em; text-transform: uppercase; }
+  .section-head h2 { font-size: clamp(24px, 4.5vw, 34px); letter-spacing: -.02em; margin: 6px 0 10px; line-height: 1.3; word-break: keep-all; }
+  .section-head p { color: var(--muted); margin: 0; word-break: keep-all; }
+
+  /* Services */
+  .grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
+  @media (min-width: 640px) { .grid { grid-template-columns: repeat(2, 1fr); } }
+  @media (min-width: 960px) { .grid { grid-template-columns: repeat(3, 1fr); } }
   .card {
-    background: var(--card); border: 1px solid var(--line); border-radius: 20px;
-    box-shadow: var(--shadow); padding: 24px;
+    background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius);
+    padding: 24px; box-shadow: var(--shadow); transition: transform .2s, border-color .2s;
+  }
+  .card:hover { transform: translateY(-3px); border-color: var(--accent); }
+  .card .ico {
+    width: 44px; height: 44px; border-radius: 12px; background: var(--accent-soft); color: var(--accent);
+    display: grid; place-items: center; margin-bottom: 16px;
+  }
+  .card .ico svg { width: 22px; height: 22px; }
+  .card h3 { margin: 0 0 6px; font-size: 18px; letter-spacing: -.01em; }
+  .card p { margin: 0; color: var(--muted); font-size: 15px; word-break: keep-all; }
+
+  /* Process */
+  .steps { list-style: none; margin: 0; padding: 0; display: grid; gap: 14px; counter-reset: step; }
+  @media (min-width: 900px) { .steps { grid-template-columns: repeat(5, 1fr); } }
+  .steps li {
+    counter-increment: step; background: var(--surface); border: 1px solid var(--line);
+    border-radius: var(--radius); padding: 20px; position: relative;
+  }
+  .steps li::before {
+    content: counter(step, decimal-leading-zero); display: block; font-weight: 800; font-size: 14px;
+    color: var(--accent); margin-bottom: 8px;
+  }
+  .steps h3 { margin: 0 0 4px; font-size: 16px; }
+  .steps p { margin: 0; color: var(--muted); font-size: 14px; word-break: keep-all; }
+
+  /* FAQ */
+  .faq { display: grid; gap: 10px; max-width: 800px; }
+  .faq details {
+    background: var(--surface); border: 1px solid var(--line); border-radius: 14px; padding: 0 20px;
+  }
+  .faq summary {
+    list-style: none; cursor: pointer; padding: 18px 0; font-weight: 700; display: flex;
+    justify-content: space-between; align-items: center; gap: 16px; word-break: keep-all;
+  }
+  .faq summary::-webkit-details-marker { display: none; }
+  .faq summary::after {
+    content: "+"; font-size: 22px; font-weight: 400; color: var(--accent); transition: transform .2s; flex-shrink: 0;
+  }
+  .faq details[open] summary::after { transform: rotate(45deg); }
+  .faq .answer { color: var(--muted); padding: 0 0 18px; margin: 0; font-size: 15px; word-break: keep-all; }
+  .faq .src { display: block; margin-top: 6px; font-size: 13px; color: var(--accent); }
+
+  /* Tool banner */
+  .tool {
+    display: flex; flex-direction: column; gap: 18px; align-items: flex-start;
+    background: linear-gradient(135deg, var(--accent), var(--accent-2)); color: #fff;
+    border-radius: 24px; padding: 32px 24px;
+  }
+  .tool h2 { margin: 0; font-size: clamp(22px, 4vw, 28px); letter-spacing: -.02em; }
+  .tool p { margin: 4px 0 0; opacity: .9; word-break: keep-all; }
+  .tool .btn { background: #fff; color: #151a26; }
+  @media (min-width: 768px) {
+    .tool { flex-direction: row; justify-content: space-between; align-items: center; padding: 40px; }
   }
 
-  label { display: block; font-weight: 700; font-size: 15px; margin-bottom: 8px; }
-  .field { margin-bottom: 18px; }
-  .input-wrap { position: relative; }
-  input {
-    width: 100%; font: inherit; font-size: 18px; font-weight: 500; color: var(--text);
-    background: var(--bg); border: 1.5px solid var(--line); border-radius: 12px;
-    padding: 13px 56px 13px 16px; outline: none; transition: border-color .15s, box-shadow .15s;
-  }
-  input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px var(--accent-soft); }
-  input.invalid { border-color: var(--err); }
-  .unit {
-    position: absolute; right: 16px; top: 50%; transform: translateY(-50%);
-    color: var(--muted); font-size: 15px; pointer-events: none;
-  }
-  .hint { font-size: 13px; color: var(--muted); margin-top: 6px; }
-  .hint.error { color: var(--err); }
-  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-  .chip {
-    font: inherit; font-size: 13px; color: var(--muted); background: transparent;
-    border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; cursor: pointer;
-  }
-  .chip:hover { color: var(--accent); border-color: var(--accent); }
+  /* Contact */
+  .contact-grid { display: grid; gap: 16px; grid-template-columns: 1fr; }
+  @media (min-width: 768px) { .contact-grid { grid-template-columns: repeat(3, 1fr); } }
+  .contact-item { display: flex; gap: 14px; align-items: center; }
+  .contact-item .ico { margin: 0; flex-shrink: 0; }
+  .contact-item small { display: block; color: var(--muted); font-size: 13px; }
+  .contact-item strong { font-size: 16px; word-break: break-all; }
 
-  button.primary {
-    width: 100%; font: inherit; font-size: 17px; font-weight: 700; color: #fff;
-    background: var(--accent); border: 0; border-radius: 12px; padding: 14px; cursor: pointer;
-    transition: filter .15s, transform .05s;
+  footer {
+    border-top: 1px solid var(--line); padding: 28px 0 40px; color: var(--muted); font-size: 13px;
   }
-  button.primary:hover { filter: brightness(1.08); }
-  button.primary:active { transform: translateY(1px); }
+  footer .container { display: flex; flex-direction: column; gap: 6px; }
 
-  .result { margin-top: 20px; display: none; }
-  .result.show { display: block; animation: rise .25s ease-out; }
-  @keyframes rise { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
-
-  .amount-box {
-    background: var(--ok-soft); border-radius: 16px; padding: 20px; text-align: center;
+  /* Reveal animation */
+  .reveal { opacity: 0; transform: translateY(16px); transition: opacity .6s ease, transform .6s ease; }
+  .reveal.in { opacity: 1; transform: none; }
+  @media (prefers-reduced-motion: reduce) {
+    html { scroll-behavior: auto; }
+    .reveal { opacity: 1; transform: none; transition: none; }
+    .card:hover { transform: none; }
   }
-  .amount-box .label { font-size: 14px; color: var(--ok); font-weight: 700; }
-  .amount-box .amount { font-size: 36px; font-weight: 800; color: var(--ok); letter-spacing: -.02em; }
-  .amount-box .sub { font-size: 14px; color: var(--muted); }
 
-  .notice {
-    background: var(--warn-soft); color: var(--warn); border-radius: 16px; padding: 20px;
-    display: flex; gap: 12px; align-items: flex-start;
+  .to-top {
+    position: fixed; right: 16px; bottom: 16px; z-index: 40; opacity: 0; pointer-events: none;
+    transition: opacity .2s; box-shadow: var(--shadow);
   }
-  .notice .icon { font-size: 26px; line-height: 1; }
-  .notice strong { display: block; font-size: 18px; margin-bottom: 4px; }
-  .notice p { margin: 0; font-size: 14px; color: var(--text); }
-
-  .breakdown { margin: 16px 0 0; padding: 0; list-style: none; font-size: 14px; }
-  .breakdown li {
-    display: flex; justify-content: space-between; gap: 12px;
-    padding: 9px 0; border-bottom: 1px dashed var(--line);
-  }
-  .breakdown li:last-child { border-bottom: 0; }
-  .breakdown span:first-child { color: var(--muted); }
-  .breakdown span:last-child { font-weight: 500; text-align: right; }
-
-  .mw-warn { margin-top: 12px; font-size: 13px; color: var(--err); display: none; }
-
-  details {
-    margin-top: 20px; background: var(--card); border: 1px solid var(--line);
-    border-radius: 16px; padding: 14px 18px; font-size: 14px;
-  }
-  summary { cursor: pointer; font-weight: 700; }
-  details ul { padding-left: 18px; margin: 10px 0 0; color: var(--muted); }
-  details li { margin-bottom: 6px; }
-  code { font-family: inherit; background: var(--accent-soft); color: var(--accent); padding: 1px 6px; border-radius: 6px; }
-
-  footer { text-align: center; color: var(--muted); font-size: 12px; margin-top: 20px; }
+  .to-top.show { opacity: 1; pointer-events: auto; }
 </style>
 </head>
 <body>
-<main>
-  <header>
-    <span class="badge">근로기준법 제55조 기준</span>
-    <h1>주휴수당 계산기</h1>
-    <p>시급과 1주 소정근로시간만 입력하세요</p>
+
+<!-- ============ Nav ============ -->
+<nav class="nav" aria-label="주 메뉴">
+  <div class="container">
+    <a href="#top" class="brand"><span class="brand-mark">勞</span><span data-cfg="office">OO노무법인</span></a>
+    <div class="nav-links">
+      <a href="#services">전문분야</a>
+      <a href="#process">진행절차</a>
+      <a href="#faq">자주 묻는 질문</a>
+      <a href="#contact">상담문의</a>
+    </div>
+    <div class="nav-actions">
+      <button class="icon-btn theme-toggle" id="themeToggle" type="button" aria-label="다크 모드 전환">
+        <svg class="moon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+        <svg class="sun" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.9 4.9l1.4 1.4M17.7 17.7l1.4 1.4M2 12h2M20 12h2M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4"/></svg>
+      </button>
+      <button class="icon-btn menu-toggle" id="menuToggle" type="button" aria-label="메뉴 열기" aria-expanded="false" aria-controls="mobileMenu">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg>
+      </button>
+    </div>
+  </div>
+  <div class="mobile-menu" id="mobileMenu">
+    <a href="#services">전문분야</a>
+    <a href="#process">진행절차</a>
+    <a href="#faq">자주 묻는 질문</a>
+    <a href="#contact">상담문의</a>
+  </div>
+</nav>
+
+<main id="top">
+  <!-- ============ Hero ============ -->
+  <header class="hero">
+    <div class="container">
+      <span class="eyebrow reveal"><span class="dot"></span>산업재해 보상 · 산업안전 전문</span>
+      <h1 class="reveal">일하다 다친 몸과 마음,<br><span class="grad">정당한 보상</span>으로 이어지도록</h1>
+      <p class="lead reveal">
+        <b data-cfg="name">OOO</b> 공인노무사가 업무상 사고와 질병의 산재 신청부터
+        불승인 이후의 심사·재심사청구까지, 법률적 요건과 의학적 인과관계를 꼼꼼히 연결해 드립니다.
+      </p>
+      <div class="hero-cta reveal">
+        <a href="#contact" class="btn btn-primary">상담 신청하기</a>
+        <a href="#services" class="btn btn-ghost">전문분야 보기</a>
+      </div>
+      <div class="hero-tags reveal">
+        <span>#업무상질병</span><span>#근골격계질환</span><span>#뇌심혈관질환</span>
+        <span>#직업성암</span><span>#심사청구</span><span>#산업안전</span>
+      </div>
+    </div>
   </header>
 
-  <section class="card">
-    <form id="calc" novalidate>
-      <div class="field">
-        <label for="wage">시급</label>
-        <div class="input-wrap">
-          <input id="wage" inputmode="numeric" autocomplete="off" placeholder="예: 10,320">
-          <span class="unit">원</span>
-        </div>
-        <div class="hint" id="wageHint">2026년 최저임금은 시간당 10,320원입니다.</div>
-        <div class="chips">
-          <button type="button" class="chip" data-wage="10320">2026 최저시급</button>
-          <button type="button" class="chip" data-wage="12000">12,000원</button>
-          <button type="button" class="chip" data-wage="15000">15,000원</button>
-        </div>
+  <!-- ============ Services ============ -->
+  <section class="block alt" id="services">
+    <div class="container">
+      <div class="section-head reveal">
+        <div class="kicker">Services</div>
+        <h2>전문분야</h2>
+        <p>재해 유형별 인정기준과 판단 요소를 분석해 사건에 맞는 전략을 세웁니다.</p>
       </div>
-
-      <div class="field">
-        <label for="hours">1주 소정근로시간</label>
-        <div class="input-wrap">
-          <input id="hours" inputmode="decimal" autocomplete="off" placeholder="예: 20">
-          <span class="unit">시간</span>
-        </div>
-        <div class="hint" id="hoursHint">근로계약상 정한 1주 근로시간(연장근로 제외)을 입력하세요.</div>
-        <div class="chips">
-          <button type="button" class="chip" data-hours="14">14시간</button>
-          <button type="button" class="chip" data-hours="15">15시간</button>
-          <button type="button" class="chip" data-hours="20">20시간</button>
-          <button type="button" class="chip" data-hours="40">40시간</button>
-        </div>
+      <div class="grid">
+        <article class="card reveal">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v6M8 6l4 4 4-4"/><rect x="4" y="12" width="16" height="9" rx="2"/></svg></div>
+          <h3>근골격계 질환</h3>
+          <p>허리·어깨·손목 등 반복 작업, 중량물 취급으로 인한 질환의 신체부담업무 분석과 산재 신청.</p>
+        </article>
+        <article class="card reveal">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20.8 4.6a5.5 5.5 0 0 0-7.8 0L12 5.7l-1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.6a5.5 5.5 0 0 0 0-7.8z"/><path d="M3 12h4l2-3 3 6 2-3h7"/></svg></div>
+          <h3>뇌심혈관 질환 · 과로</h3>
+          <p>뇌출혈·뇌경색·심근경색 등에서 업무시간, 교대제, 업무 부담 요인 입증.</p>
+        </article>
+        <article class="card reveal">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3h6M10 3v6L4.5 18.5A2 2 0 0 0 6.2 21h11.6a2 2 0 0 0 1.7-2.5L14 9V3"/><path d="M7 15h10"/></svg></div>
+          <h3>직업성 암 · 유해물질</h3>
+          <p>유해물질 노출 이력과 근무 기간을 재구성하여 직업성 암·호흡기 질환 등의 인과관계 입증.</p>
+        </article>
+        <article class="card reveal">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M6 21v-1a6 6 0 0 1 12 0v1"/><path d="M15.5 4.5 18 2"/></svg></div>
+          <h3>정신질병 · 직장 내 괴롭힘</h3>
+          <p>업무상 스트레스, 괴롭힘, 고객응대 등으로 인한 적응장애·우울병 등 정신질병 산재.</p>
+        </article>
+        <article class="card reveal">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 3H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9z"/><path d="M14 3v6h6M9 14l2 2 4-4"/></svg></div>
+          <h3>심사 · 재심사청구</h3>
+          <p>불승인·부지급 처분에 대한 심사청구와 재심사청구 이유서 작성 및 대응.</p>
+        </article>
+        <article class="card reveal">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2 4 5v6c0 5 3.4 9.3 8 11 4.6-1.7 8-6 8-11V5z"/><path d="m9 12 2 2 4-4"/></svg></div>
+          <h3>산업안전 · 중대재해 대응</h3>
+          <p>산업안전보건법·중대재해처벌법상 의무 점검과 사업장 안전보건관리체계 자문.</p>
+        </article>
       </div>
-
-      <button class="primary" type="submit">계산하기</button>
-    </form>
-
-    <div class="result" id="result" aria-live="polite"></div>
+    </div>
   </section>
 
-  <details>
-    <summary>계산 기준 및 법적 근거</summary>
-    <ul>
-      <li><b>계산식</b>: 주휴수당 = (1주 소정근로시간 ÷ 40) × 8시간 × 시급<br>
-        ※ 1주 소정근로시간이 40시간 이상이면 주휴시간은 8시간으로 봅니다.</li>
-      <li><b>발생 요건</b>: 1주 동안 소정근로일을 개근한 근로자에게 1주에 평균 1회 이상 유급휴일 부여
-        (근로기준법 제55조 제1항, 같은 법 시행령 제30조 제1항)</li>
-      <li><b>적용 제외</b>: 4주 동안(4주 미만 근로 시 그 기간)을 평균하여 1주 소정근로시간이 15시간 미만인 근로자
-        (근로기준법 제18조 제3항)</li>
-      <li><b>단시간근로자 비례</b>: 유급휴일 시간은 단시간근로자의 1일 소정근로시간 수 기준
-        (근로기준법 시행령 제9조 제1항 [별표 2])</li>
-      <li>원 단위 미만은 버림 처리하였습니다. 결근이 있는 주, 연장·야간근로, 근로계약·취업규칙상 별도 약정 등은 반영하지 않으므로
-        실제 지급액은 개별 사정에 따라 달라질 수 있습니다.</li>
-    </ul>
-  </details>
+  <!-- ============ Process ============ -->
+  <section class="block" id="process">
+    <div class="container">
+      <div class="section-head reveal">
+        <div class="kicker">Process</div>
+        <h2>진행절차</h2>
+        <p>첫 상담부터 결정 이후 불복 절차까지 한 흐름으로 함께합니다.</p>
+      </div>
+      <ol class="steps">
+        <li class="reveal"><h3>초기 상담</h3><p>재해 경위와 진단명, 근무 이력을 듣고 산재 가능성을 검토합니다.</p></li>
+        <li class="reveal"><h3>자료 수집</h3><p>의무기록, 근무기록, 동료 진술 등 입증 자료를 정리합니다.</p></li>
+        <li class="reveal"><h3>이유서 작성·신청</h3><p>업무 관련성 논리를 담은 이유서와 함께 근로복지공단에 신청합니다.</p></li>
+        <li class="reveal"><h3>조사·판정 대응</h3><p>재해조사, 업무상질병판정위원회 심의 등 각 단계에 대응합니다.</p></li>
+        <li class="reveal"><h3>결정 및 불복</h3><p>불승인 시 심사·재심사청구 등 후속 절차를 검토합니다.</p></li>
+      </ol>
+    </div>
+  </section>
 
-  <footer>본 계산 결과는 참고용이며 법적 효력이 없습니다.</footer>
+  <!-- ============ FAQ ============ -->
+  <section class="block alt" id="faq">
+    <div class="container">
+      <div class="section-head reveal">
+        <div class="kicker">FAQ</div>
+        <h2>자주 묻는 질문</h2>
+      </div>
+      <div class="faq">
+        <details class="reveal">
+          <summary>회사가 산재 신청에 협조하지 않으면 신청할 수 없나요?</summary>
+          <p class="answer">아닙니다. 산재 요양급여 신청은 근로자 본인(또는 대리인)이 근로복지공단에 직접 할 수 있으며, 사업주의 확인이나 날인이 없어도 접수됩니다.</p>
+        </details>
+        <details class="reveal">
+          <summary>산재 신청에 기한이 있나요?</summary>
+          <p class="answer">보험급여를 받을 권리는 원칙적으로 3년간 행사하지 않으면 시효로 소멸하고, 장해급여·유족급여 등 일부 급여는 5년입니다. 사건마다 기산점이 다를 수 있으니 가급적 빨리 상담받으시길 권합니다.
+            <span class="src">근거: 산업재해보상보험법 제112조</span></p>
+        </details>
+        <details class="reveal">
+          <summary>산재가 불승인되면 어떻게 하나요?</summary>
+          <p class="answer">처분이 있음을 안 날부터 90일 이내에 근로복지공단에 심사청구를 할 수 있고, 심사청구 결정에 불복하면 결정서를 받은 날부터 90일 이내에 산업재해보상보험재심사위원회에 재심사청구를 할 수 있습니다. 행정소송도 가능합니다.
+            <span class="src">근거: 산업재해보상보험법 제103조 제2항, 제106조 제3항</span></p>
+        </details>
+        <details class="reveal">
+          <summary>퇴사한 뒤에도 산재 신청이 가능한가요?</summary>
+          <p class="answer">가능합니다. 업무상 재해 여부는 재직 중 수행한 업무와 질병·부상 사이의 관련성으로 판단하므로, 퇴사 여부 자체로 신청이 막히지는 않습니다. 다만 시효는 확인해야 합니다.</p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Tool ============ -->
+  <section class="block">
+    <div class="container">
+      <div class="tool reveal">
+        <div>
+          <h2>주휴수당 계산기</h2>
+          <p>시급과 1주 소정근로시간만 넣으면 주휴수당을 바로 계산해 드립니다.</p>
+        </div>
+        <a href="calculator.html" class="btn">계산기 열기 →</a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ Contact ============ -->
+  <section class="block alt" id="contact">
+    <div class="container">
+      <div class="section-head reveal">
+        <div class="kicker">Contact</div>
+        <h2>상담문의</h2>
+        <p>사건 개요를 간단히 알려주시면 확인 후 연락드리겠습니다.</p>
+      </div>
+      <div class="contact-grid">
+        <a class="card contact-item reveal" data-cfg-href="tel" href="#">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.5c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg></div>
+          <div><small>전화</small><strong data-cfg="phone">000-0000-0000</strong></div>
+        </a>
+        <a class="card contact-item reveal" data-cfg-href="mailto" href="#">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="4" width="20" height="16" rx="2"/><path d="m22 7-10 6L2 7"/></svg></div>
+          <div><small>이메일</small><strong data-cfg="email">example@email.com</strong></div>
+        </a>
+        <div class="card contact-item reveal">
+          <div class="ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0z"/><circle cx="12" cy="10" r="3"/></svg></div>
+          <div><small>사무소</small><strong data-cfg="address">주소를 입력하세요</strong></div>
+        </div>
+      </div>
+    </div>
+  </section>
 </main>
 
+<footer>
+  <div class="container">
+    <div><b data-cfg="office">OO노무법인</b> · 공인노무사 <span data-cfg="name">OOO</span></div>
+    <div>본 페이지의 내용은 일반적인 안내이며, 개별 사건에 대한 법률 자문이 아닙니다.</div>
+    <div>© <span id="year"></span> <span data-cfg="office">OO노무법인</span>. All rights reserved.</div>
+  </div>
+</footer>
+
+<button class="icon-btn to-top" id="toTop" type="button" aria-label="맨 위로">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m18 15-6-6-6 6"/></svg>
+</button>
+
 <script>
-  const MIN_WAGE_2026 = 10320;
-  const $ = (id) => document.getElementById(id);
-  const wageEl = $('wage'), hoursEl = $('hours'), resultEl = $('result');
-  const won = (n) => Math.floor(n).toLocaleString('ko-KR') + '원';
-  const num = (s) => parseFloat(String(s).replace(/,/g, ''));
+  // ▼ 여기만 수정하면 페이지 전체의 이름·연락처가 바뀝니다.
+  const CONFIG = {
+    name: 'OOO',
+    office: 'OO노무법인',
+    phone: '000-0000-0000',
+    email: 'example@email.com',
+    address: '주소를 입력하세요',
+  };
 
-  // 시급 입력 시 천 단위 콤마 자동 표시
-  wageEl.addEventListener('input', () => {
-    const digits = wageEl.value.replace(/[^\d]/g, '');
-    wageEl.value = digits ? Number(digits).toLocaleString('ko-KR') : '';
+  document.querySelectorAll('[data-cfg]').forEach((el) => {
+    const v = CONFIG[el.dataset.cfg];
+    if (v) el.textContent = v;
   });
-  hoursEl.addEventListener('input', () => {
-    hoursEl.value = hoursEl.value.replace(/[^\d.]/g, '').replace(/(\..*)\./g, '$1');
+  document.querySelectorAll('[data-cfg-href]').forEach((el) => {
+    el.href = el.dataset.cfgHref === 'tel'
+      ? 'tel:' + CONFIG.phone.replace(/[^\d+]/g, '')
+      : 'mailto:' + CONFIG.email;
   });
+  document.title = `${CONFIG.name} 공인노무사 | 산재 전문`;
+  document.getElementById('year').textContent = new Date().getFullYear();
 
-  document.querySelectorAll('.chip').forEach((chip) => {
-    chip.addEventListener('click', () => {
-      if (chip.dataset.wage) wageEl.value = Number(chip.dataset.wage).toLocaleString('ko-KR');
-      if (chip.dataset.hours) hoursEl.value = chip.dataset.hours;
-      if (wageEl.value && hoursEl.value) calculate();
-    });
+  // ---- 다크 모드 토글 ----
+  const root = document.documentElement;
+  const media = window.matchMedia('(prefers-color-scheme: dark)');
+  const currentTheme = () => root.dataset.theme || (media.matches ? 'dark' : 'light');
+  const themeBtn = document.getElementById('themeToggle');
+  const syncThemeLabel = () =>
+    themeBtn.setAttribute('aria-label', currentTheme() === 'dark' ? '라이트 모드로 전환' : '다크 모드로 전환');
+  themeBtn.addEventListener('click', () => {
+    const next = currentTheme() === 'dark' ? 'light' : 'dark';
+    root.dataset.theme = next;
+    try { localStorage.setItem('theme', next); } catch (e) {}
+    syncThemeLabel();
   });
+  media.addEventListener('change', syncThemeLabel);
+  syncThemeLabel();
 
-  function setError(el, hintEl, msg, defaultMsg) {
-    el.classList.toggle('invalid', !!msg);
-    hintEl.classList.toggle('error', !!msg);
-    hintEl.textContent = msg || defaultMsg;
+  // ---- 모바일 메뉴 ----
+  const menuBtn = document.getElementById('menuToggle');
+  const menu = document.getElementById('mobileMenu');
+  const setMenu = (open) => {
+    menu.classList.toggle('open', open);
+    menuBtn.setAttribute('aria-expanded', open);
+    menuBtn.setAttribute('aria-label', open ? '메뉴 닫기' : '메뉴 열기');
+  };
+  menuBtn.addEventListener('click', () => setMenu(!menu.classList.contains('open')));
+  menu.querySelectorAll('a').forEach((a) => a.addEventListener('click', () => setMenu(false)));
+
+  // ---- 스크롤 등장 애니메이션 ----
+  const revealEls = document.querySelectorAll('.reveal');
+  if ('IntersectionObserver' in window) {
+    const io = new IntersectionObserver((entries) => {
+      entries.forEach((e) => {
+        if (e.isIntersecting) { e.target.classList.add('in'); io.unobserve(e.target); }
+      });
+    }, { threshold: 0.12 });
+    revealEls.forEach((el) => io.observe(el));
+  } else {
+    revealEls.forEach((el) => el.classList.add('in'));
   }
 
-  function calculate() {
-    const wage = num(wageEl.value);
-    const hours = num(hoursEl.value);
-    let valid = true;
-
-    if (!(wage > 0)) {
-      setError(wageEl, $('wageHint'), '시급을 올바르게 입력해 주세요.');
-      valid = false;
-    } else {
-      setError(wageEl, $('wageHint'), '', '2026년 최저임금은 시간당 10,320원입니다.');
-    }
-    if (!(hours > 0) || hours > 168) {
-      setError(hoursEl, $('hoursHint'), '1주 소정근로시간을 0보다 크고 168 이하로 입력해 주세요.');
-      valid = false;
-    } else {
-      setError(hoursEl, $('hoursHint'), '', '근로계약상 정한 1주 근로시간(연장근로 제외)을 입력하세요.');
-    }
-    if (!valid) { resultEl.className = 'result'; return; }
-
-    const mwWarn = wage < MIN_WAGE_2026
-      ? `<div class="mw-warn" style="display:block">⚠️ 입력한 시급이 2026년 최저임금(10,320원)보다 낮습니다. 최저임금법 위반 여부를 확인해 보세요.</div>`
-      : '';
-
-    if (hours < 15) {
-      resultEl.innerHTML = `
-        <div class="notice">
-          <div class="icon">💡</div>
-          <div>
-            <strong>주휴수당 미발생 대상</strong>
-            <p>1주 소정근로시간이 <b>${hours}시간</b>으로 15시간 미만이에요.
-            근로기준법 제18조 제3항에 따라 초단시간근로자에게는 주휴일(제55조) 규정이 적용되지 않아
-            주휴수당이 발생하지 않습니다.</p>
-            <p style="margin-top:8px;color:var(--muted)">※ 4주 평균으로 판단하므로, 주마다 근로시간이 다르다면 4주 평균이 15시간 이상인지 다시 확인해 주세요.</p>
-          </div>
-        </div>${mwWarn}`;
-      resultEl.className = 'result show';
-      return;
-    }
-
-    const cappedHours = Math.min(hours, 40);
-    const paidHours = cappedHours / 40 * 8;
-    const weekly = Math.floor(paidHours * wage);
-    const monthly = Math.floor(weekly * 365 / 7 / 12);
-
-    resultEl.innerHTML = `
-      <div class="amount-box">
-        <div class="label">1주 주휴수당</div>
-        <div class="amount">${won(weekly)}</div>
-        <div class="sub">월 환산 약 ${won(monthly)} (1개월 평균 약 4.345주 기준)</div>
-      </div>
-      <ul class="breakdown">
-        <li><span>시급</span><span>${won(wage)}</span></li>
-        <li><span>1주 소정근로시간</span><span>${hours}시간${hours > 40 ? ' → 40시간 적용' : ''}</span></li>
-        <li><span>주휴시간</span><span>${cappedHours} ÷ 40 × 8 = ${+paidHours.toFixed(2)}시간</span></li>
-        <li><span>주휴수당</span><span>${+paidHours.toFixed(2)}시간 × ${won(wage)}</span></li>
-      </ul>
-      <p class="hint" style="margin-top:12px">※ 해당 주 소정근로일을 개근한 경우를 전제로 한 금액입니다.</p>
-      ${mwWarn}`;
-    resultEl.className = 'result show';
-  }
-
-  $('calc').addEventListener('submit', (e) => { e.preventDefault(); calculate(); });
+  // ---- 맨 위로 버튼 ----
+  const toTop = document.getElementById('toTop');
+  window.addEventListener('scroll', () => toTop.classList.toggle('show', window.scrollY > 600), { passive: true });
+  toTop.addEventListener('click', () => window.scrollTo({ top: 0 }));
 </script>
 </body>
 </html>
