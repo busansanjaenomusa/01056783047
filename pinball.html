@@ -1,0 +1,751 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>핀볼 추첨기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=IBM+Plex+Sans+KR:wght@400;500;700&family=IBM+Plex+Mono:wght@500&display=swap" rel="stylesheet">
+<style>
+  /* Layout: 왼쪽 핀볼 캐비닛(캔버스) + 오른쪽 조작 패널, 좁은 화면에서는 위아래로 쌓임 */
+  :root {
+    --bg: #eceff3;
+    --panel: #ffffff;
+    --ink: #17202b;
+    --muted: #5a6575;
+    --line: #d7dde5;
+    --brass: #9a6b12;
+    --brass-soft: #f6ecd6;
+    --cabinet: #1b2f4a;
+    --on-brass: #ffffff;
+    --danger: #b3261e;
+    --font-display: "Black Han Sans", "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", sans-serif;
+    --font-body: "IBM Plex Sans KR", "Apple SD Gothic Neo", "Malgun Gothic", system-ui, sans-serif;
+    --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #10161e; --panel: #18212c; --ink: #e8edf3; --muted: #9aa6b6; --line: #2a3644;
+      --brass: #e2b65a; --brass-soft: #2e2716; --cabinet: #0f1f33; --on-brass: #1a1406; --danger: #ff8a80;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #10161e; --panel: #18212c; --ink: #e8edf3; --muted: #9aa6b6; --line: #2a3644;
+    --brass: #e2b65a; --brass-soft: #2e2716; --cabinet: #0f1f33; --on-brass: #1a1406; --danger: #ff8a80;
+    color-scheme: dark;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--bg);
+    color: var(--ink);
+    font: 15px/1.55 var(--font-body);
+    padding-inline: 16px;
+    padding-block: 24px 40px;
+  }
+  .wrap {
+    max-width: 960px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: minmax(0, 400px) minmax(0, 1fr);
+    gap: 28px;
+    align-items: start;
+  }
+  @media (max-width: 760px) {
+    .wrap { grid-template-columns: minmax(0, 1fr); }
+    .cabinet { max-width: 420px; margin-inline: auto; width: 100%; }
+  }
+
+  /* 캐비닛 */
+  .cabinet {
+    background: var(--cabinet);
+    border-radius: 22px 22px 10px 10px;
+    padding: 12px;
+    box-shadow: 0 18px 40px rgba(15, 25, 40, .22), inset 0 0 0 2px rgba(226, 182, 90, .35);
+  }
+  .marquee {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    padding: 4px 6px 10px;
+    color: #e2b65a;
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+  }
+  .marquee b { font-family: var(--font-display); font-weight: 400; font-size: 18px; letter-spacing: .04em; text-transform: none; }
+  canvas {
+    display: block;
+    width: 100%;
+    max-width: 100%;
+    height: auto;
+    aspect-ratio: 360 / 620;
+    border-radius: 12px;
+    background: #213a5c;
+  }
+
+  /* 패널 */
+  .panel { display: grid; gap: 22px; min-width: 0; }
+  h1 {
+    font-family: var(--font-display);
+    font-weight: 400;
+    font-size: clamp(30px, 5vw, 42px);
+    line-height: 1.1;
+    margin: 0 0 6px;
+    text-wrap: balance;
+  }
+  .lede { margin: 0; color: var(--muted); max-width: 46ch; }
+  .label {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 0 0 8px;
+    display: flex;
+    justify-content: space-between;
+    gap: 8px;
+  }
+  .label span:last-child { font-variant-numeric: tabular-nums; }
+
+  .adder { display: flex; gap: 8px; }
+  input[type="text"] {
+    flex: 1;
+    min-width: 0;
+    font: inherit;
+    color: var(--ink);
+    background: var(--panel);
+    border: 1.5px solid var(--line);
+    border-radius: 10px;
+    padding: 10px 12px;
+  }
+  input[type="text"]:focus-visible { outline: none; border-color: var(--brass); box-shadow: 0 0 0 3px var(--brass-soft); }
+  button {
+    font: inherit;
+    cursor: pointer;
+    border-radius: 10px;
+    border: 1.5px solid var(--line);
+    background: var(--panel);
+    color: var(--ink);
+    padding: 9px 14px;
+  }
+  button:hover:not(:disabled) { border-color: var(--brass); }
+  button:focus-visible { outline: 3px solid var(--brass); outline-offset: 2px; }
+  button:disabled { opacity: .45; cursor: not-allowed; }
+  .hint { margin: 6px 0 0; font-size: 13px; color: var(--muted); }
+  .hint.error { color: var(--danger); }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 12px; min-height: 36px; }
+  .chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    max-width: 100%;
+    padding: 4px 4px 4px 10px;
+    border-radius: 999px;
+    background: var(--panel);
+    border: 1px solid var(--line);
+    font-size: 14px;
+  }
+  .chip i {
+    width: 9px; height: 9px; border-radius: 50%; flex: none; margin-right: 2px;
+  }
+  .chip span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .chip button {
+    border: 0; background: transparent; padding: 2px 7px; border-radius: 999px;
+    color: var(--muted); line-height: 1; font-size: 16px;
+  }
+  .chip button:hover:not(:disabled) { color: var(--danger); }
+  .empty { color: var(--muted); font-size: 14px; align-self: center; }
+
+  .row { display: flex; flex-wrap: wrap; gap: 8px; }
+  .row button { font-size: 14px; padding: 7px 12px; }
+  .opts { display: grid; gap: 6px; font-size: 14px; }
+  .opts label { display: flex; gap: 8px; align-items: center; cursor: pointer; }
+  .opts input { accent-color: var(--brass); width: 16px; height: 16px; }
+
+  .go {
+    width: 100%;
+    font-family: var(--font-display);
+    font-size: 22px;
+    letter-spacing: .02em;
+    padding: 14px;
+    background: var(--brass);
+    border-color: var(--brass);
+    color: var(--on-brass);
+    border-radius: 14px;
+  }
+  .go:hover:not(:disabled) { filter: brightness(1.06); }
+
+  .result {
+    border-top: 2px solid var(--ink);
+    padding-top: 12px;
+  }
+  .result-name {
+    font-family: var(--font-display);
+    font-size: clamp(28px, 6vw, 40px);
+    line-height: 1.15;
+    margin: 0;
+    overflow-wrap: anywhere;
+    min-height: 1.15em;
+  }
+  .result-name.idle { color: var(--muted); font-size: 22px; }
+  .result-meta { margin: 4px 0 0; font-size: 13px; color: var(--muted); font-family: var(--font-mono); }
+  .pop { animation: pop .5s cubic-bezier(.2, 1.6, .4, 1); }
+  @keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+  ol.history { margin: 0; padding: 0; list-style: none; display: grid; gap: 4px; font-size: 14px; }
+  ol.history li {
+    display: grid; grid-template-columns: 2.2em minmax(0, 1fr) auto; gap: 8px; align-items: baseline;
+    padding: 5px 0; border-bottom: 1px dashed var(--line);
+  }
+  ol.history .n, ol.history time { font-family: var(--font-mono); font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+  ol.history .v { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .fine { font-size: 12.5px; color: var(--muted); margin: 0; max-width: 60ch; }
+
+  @media (prefers-reduced-motion: reduce) { .pop { animation: none; } }
+</style>
+</head>
+<body>
+<main class="wrap">
+  <section class="cabinet" aria-label="핀볼 보드">
+    <div class="marquee"><b>핀볼 추첨기</b><span id="status">READY</span></div>
+    <canvas id="board" width="360" height="620" role="img" aria-label="핀이 박힌 보드와 아래쪽 결과 슬롯"></canvas>
+  </section>
+
+  <section class="panel">
+    <header>
+      <h1>공이 떨어진 칸이 정답</h1>
+      <p class="lede">항목을 넣으면 보드 아래에 칸이 생깁니다. 공을 떨어뜨리면 핀에 튕기다가 한 칸에 멈춥니다.</p>
+    </header>
+
+    <div>
+      <p class="label"><span>항목</span><span id="count">0 / 12</span></p>
+      <form class="adder" id="addForm" autocomplete="off">
+        <input type="text" id="itemInput" placeholder="예: 김치찌개 (쉼표로 여러 개)" maxlength="60" aria-label="추가할 항목">
+        <button type="submit" id="addBtn">추가</button>
+      </form>
+      <p class="hint" id="hint">2개 이상, 최대 12개까지 넣을 수 있습니다.</p>
+      <div class="chips" id="chips"></div>
+    </div>
+
+    <div>
+      <p class="label"><span>예시 불러오기</span></p>
+      <div class="row">
+        <button type="button" data-preset="lunch">점심 메뉴</button>
+        <button type="button" data-preset="team">팀원 이름</button>
+        <button type="button" data-preset="clear">모두 지우기</button>
+      </div>
+    </div>
+
+    <div class="opts">
+      <label><input type="checkbox" id="optRemove"> 뽑힌 항목은 다음 추첨에서 빼기 (순서 정하기용)</label>
+      <label><input type="checkbox" id="optFast"> 빠르게 떨어뜨리기</label>
+    </div>
+
+    <button type="button" class="go" id="dropBtn">공 떨어뜨리기</button>
+
+    <div class="result" aria-live="polite">
+      <p class="label"><span>결과</span></p>
+      <p class="result-name idle" id="resultName">아직 추첨 전입니다</p>
+      <p class="result-meta" id="resultMeta"></p>
+    </div>
+
+    <div>
+      <p class="label"><span>최근 기록</span><span id="histCount"></span></p>
+      <ol class="history" id="history"></ol>
+    </div>
+
+    <p class="fine">공정성: 핀볼 보드는 물리적으로 가장자리 칸에 공이 더 자주 들어갑니다. 그래서 당첨 칸을 먼저 브라우저 암호학적 난수로 균등하게(각 1/n) 정한 뒤, 그 칸에 실제로 떨어지는 물리 궤적을 찾아 화면에 재생합니다. 공의 움직임은 진짜 시뮬레이션이고, 칸마다 확률은 정확히 같습니다.</p>
+  </section>
+</main>
+
+<script>
+(() => {
+  'use strict';
+
+  // ---------- 난수 ----------
+  // 당첨 칸과 시드 선택에는 암호학적 난수를 쓴다
+  const buf = new Uint32Array(1);
+  const cryptoU32 = () => {
+    try { crypto.getRandomValues(buf); return buf[0]; }
+    catch (e) { return Math.floor(Math.random() * 4294967296); }
+  };
+
+  // PHYSICS-START
+  // 물리 엔진 안의 무작위 요소는 시드 PRNG(mulberry32)를 쓴다.
+  // 같은 시드면 궤적이 똑같이 재현되므로, 미리 계산한 궤적을 화면에서 그대로 재생할 수 있다.
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = (a + 0x6D2B79F5) | 0;
+      let t = Math.imul(a ^ (a >>> 15), 1 | a);
+      t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+      return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+    };
+  }
+  let rand = mulberry32(1);
+  const W = 360, H = 620;
+  const SLOT_H = 120, SLOT_TOP = H - SLOT_H;
+  const R_BALL = 7, R_PIN = 3.5, R_DIV = 2;
+  const G = 1100, REST = 0.48, MAX_V = 950;
+
+  function buildPins() {
+    const pins = [];
+    const dx = 36, dy = 32;
+    let row = 0;
+    for (let y = 104; y < SLOT_TOP - 30; y += dy, row++) {
+      const off = row % 2 ? dx / 2 : 0;
+      for (let x = dx / 2 + off; x < W; x += dx) {
+        if (x < 22 || x > W - 22) continue;
+        pins.push({ x, y, hit: -1e9 });
+      }
+      // 벽에 반쯤 박힌 핀: 벽을 타고 곧장 떨어지는 길을 막아 가장자리 칸 쏠림을 없앤다
+      if (row % 2 === 0) {
+        pins.push({ x: 0, y, hit: -1e9, wall: true });
+        pins.push({ x: W, y, hit: -1e9, wall: true });
+      }
+    }
+    return pins;
+  }
+
+  function buildDividers(n) {
+    const out = [];
+    for (let i = 1; i < n; i++) out.push({ x: (i * W) / n, y1: SLOT_TOP, y2: H });
+    return out;
+  }
+
+  function bounce(b, nx, ny, e, kick) {
+    const vn = b.vx * nx + b.vy * ny;
+    if (vn < 0) {
+      b.vx -= (1 + e) * vn * nx;
+      b.vy -= (1 + e) * vn * ny;
+      // 접선 방향 감쇠 + 미세한 무작위 흔들림(핀 꼭대기에 멈추는 것도 방지)
+      const tx = -ny, ty = nx;
+      const vt = b.vx * tx + b.vy * ty;
+      const k = (rand() - 0.5) * kick;
+      b.vx += tx * (-0.08 * vt + k);
+      b.vy += ty * (-0.08 * vt + k);
+    }
+  }
+
+  // 공 한 개를 dt초만큼 진행. 핀 충돌 시 onHit(pin) 호출
+  function step(b, pins, dividers, dt, now, onHit) {
+    b.vy += G * dt;
+    const sp = Math.hypot(b.vx, b.vy);
+    if (sp > MAX_V) { b.vx *= MAX_V / sp; b.vy *= MAX_V / sp; }
+    b.x += b.vx * dt;
+    b.y += b.vy * dt;
+
+    const minP = R_BALL + R_PIN;
+    for (const p of pins) {
+      const dx = b.x - p.x, dy = b.y - p.y;
+      if (dx > minP || dx < -minP || dy > minP || dy < -minP) continue;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < minP * minP) {
+        const d = Math.sqrt(d2) || 0.0001;
+        const nx = dx / d, ny = dy / d;
+        b.x = p.x + nx * minP; b.y = p.y + ny * minP;
+        bounce(b, nx, ny, REST, 70);
+        if (onHit && now - p.hit > 60) onHit(p);
+        p.hit = now;
+      }
+    }
+
+    const minD = R_BALL + R_DIV;
+    for (const s of dividers) {
+      const cy = Math.max(s.y1, Math.min(s.y2, b.y));
+      const dx = b.x - s.x, dy = b.y - cy;
+      const d2 = dx * dx + dy * dy;
+      if (d2 < minD * minD) {
+        const d = Math.sqrt(d2) || 0.0001;
+        const nx = dx / d, ny = dy / d;
+        b.x = s.x + nx * minD; b.y = cy + ny * minD;
+        bounce(b, nx, ny, 0.35, 40);
+      }
+    }
+
+    if (b.x < R_BALL) { b.x = R_BALL; b.vx = Math.abs(b.vx) * REST; }
+    if (b.x > W - R_BALL) { b.x = W - R_BALL; b.vx = -Math.abs(b.vx) * REST; }
+    if (b.y > H - R_BALL) {
+      b.y = H - R_BALL;
+      b.vy = -Math.abs(b.vy) * 0.25;
+      b.vx *= 0.85;
+    }
+  }
+
+  function newBall() {
+    // 상단 전체 폭에서 균등하게 출발 위치를 고른다
+    return { x: R_BALL + rand() * (W - 2 * R_BALL), y: 26, vx: (rand() - 0.5) * 80, vy: 0, rest: 0 };
+  }
+
+  // 정착 판정: 슬롯 구역 안에서 충분히 느려지면 true
+  function settled(b, dt) {
+    if (b.y > SLOT_TOP + R_BALL && Math.hypot(b.vx, b.vy) < 40 && b.y > H - R_BALL - 2) b.rest += dt;
+    else b.rest = 0;
+    return b.rest > 0.25;
+  }
+
+  function slotOf(b, n) { return Math.min(n - 1, Math.max(0, Math.floor(b.x / (W / n)))); }
+
+  const DT = 1 / 240;
+
+  // 화면 없이 끝까지 굴려서 도착 칸을 돌려준다
+  function simulate(seed, pins, dividers, n) {
+    rand = mulberry32(seed);
+    const b = newBall();
+    for (let t = 0; t < 40; t += DT) {
+      step(b, pins, dividers, DT, 0, null);
+      if (settled(b, DT)) return slotOf(b, n);
+    }
+    return -1;
+  }
+
+  // 균등하게 뽑은 target 칸에 실제로 떨어지는 시드를 찾는다
+  function findSeed(target, pins, dividers, n) {
+    for (let i = 0; i < 2000; i++) {
+      const seed = cryptoU32();
+      if (simulate(seed, pins, dividers, n) === target) return seed;
+    }
+    return null;
+  }
+  // PHYSICS-END
+
+  // ---------- 상태 ----------
+  const MAX_ITEMS = 12;
+  const SLOT_COLORS = ['#e07a5f', '#f2cc8f', '#81b29a', '#7aa6d6', '#c39bd3', '#e9a6b8', '#9fd3c7', '#f4a259', '#b5c99a', '#8d99ae', '#ffb4a2', '#a0c4ff'];
+  const PRESETS = {
+    lunch: ['김치찌개', '제육볶음', '냉면', '돈가스', '쌀국수', '비빔밥'],
+    team: ['민준', '서연', '도윤', '하은', '지호']
+  };
+
+  let items = [];
+  try {
+    const saved = JSON.parse(localStorage.getItem('pinball-items') || 'null');
+    if (Array.isArray(saved)) items = saved.filter(s => typeof s === 'string').slice(0, MAX_ITEMS);
+  } catch (e) {}
+  if (items.length === 0) items = PRESETS.lunch.slice();
+
+  let history = [];
+  let pins = buildPins();
+  let dividers = buildDividers(items.length);
+  let ball = null, trail = [], running = false, winner = -1, winAt = 0, pendingRemove = null;
+
+  const $ = id => document.getElementById(id);
+  const canvas = $('board'), ctx = canvas.getContext('2d');
+  const chipsEl = $('chips'), countEl = $('count'), hintEl = $('hint');
+  const dropBtn = $('dropBtn'), statusEl = $('status');
+  const reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  function save() { try { localStorage.setItem('pinball-items', JSON.stringify(items)); } catch (e) {} }
+
+  function setHint(msg, isError) {
+    hintEl.textContent = msg || '2개 이상, 최대 12개까지 넣을 수 있습니다.';
+    hintEl.classList.toggle('error', !!isError);
+  }
+
+  function itemsChanged() {
+    dividers = buildDividers(items.length);
+    winner = -1;
+    save();
+    renderChips();
+  }
+
+  function renderChips() {
+    chipsEl.textContent = '';
+    if (items.length === 0) {
+      const p = document.createElement('span');
+      p.className = 'empty';
+      p.textContent = '항목이 없습니다. 위에서 추가하거나 예시를 불러오세요.';
+      chipsEl.appendChild(p);
+    }
+    items.forEach((name, i) => {
+      const c = document.createElement('span');
+      c.className = 'chip';
+      const dot = document.createElement('i');
+      dot.style.background = SLOT_COLORS[i % SLOT_COLORS.length];
+      const t = document.createElement('span');
+      t.textContent = name;
+      t.title = name;
+      const x = document.createElement('button');
+      x.type = 'button';
+      x.textContent = '×';
+      x.setAttribute('aria-label', name + ' 삭제');
+      x.disabled = running;
+      x.addEventListener('click', () => { items.splice(i, 1); setHint(); itemsChanged(); });
+      c.append(dot, t, x);
+      chipsEl.appendChild(c);
+    });
+    countEl.textContent = items.length + ' / ' + MAX_ITEMS;
+    dropBtn.disabled = running || items.length < 2;
+    $('addBtn').disabled = running;
+    document.querySelectorAll('[data-preset]').forEach(b => { b.disabled = running; });
+  }
+
+  function addItems(raw) {
+    const parts = raw.split(/[,\n]/).map(s => s.trim()).filter(Boolean);
+    if (parts.length === 0) return;
+    let added = 0, dup = 0, full = false;
+    for (const p of parts) {
+      if (items.length >= MAX_ITEMS) { full = true; break; }
+      if (items.includes(p)) { dup++; continue; }
+      items.push(p); added++;
+    }
+    if (full) setHint('최대 12개까지만 넣을 수 있습니다. 칸이 너무 좁아지기 때문입니다.', true);
+    else if (dup) setHint('이미 있는 항목 ' + dup + '개는 건너뛰었습니다.', true);
+    else setHint();
+    if (added) itemsChanged();
+  }
+
+  $('addForm').addEventListener('submit', e => {
+    e.preventDefault();
+    if (running) return;
+    const inp = $('itemInput');
+    addItems(inp.value);
+    inp.value = '';
+    inp.focus();
+  });
+
+  document.querySelectorAll('[data-preset]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      if (running) return;
+      const k = btn.dataset.preset;
+      items = k === 'clear' ? [] : PRESETS[k].slice();
+      pendingRemove = null;
+      setHint();
+      itemsChanged();
+    });
+  });
+
+  // ---------- 추첨 ----------
+  function drop() {
+    if (running) return;
+    if (pendingRemove !== null) {
+      const idx = items.indexOf(pendingRemove);
+      if (idx >= 0) items.splice(idx, 1);
+      pendingRemove = null;
+      itemsChanged();
+    }
+    if (items.length < 2) { setHint('추첨하려면 항목이 2개 이상 필요합니다.', true); return; }
+    winner = -1;
+    const n = items.length;
+    // 1) 당첨 칸을 1/n 균등 확률로 먼저 정한다 (모듈로 편향 없는 거절 샘플링)
+    const lim = 4294967296 - (4294967296 % n);
+    let r; do { r = cryptoU32(); } while (r >= lim);
+    const target = r % n;
+    // 2) 그 칸에 떨어지는 실제 물리 궤적의 시드를 찾는다
+    const seed = findSeed(target, pins.map(p => ({ x: p.x, y: p.y, hit: 0 })), dividers, n);
+    // 3) 같은 시드로 화면에서 재생한다 (시드를 못 찾는 극히 드문 경우엔 그냥 자유 낙하)
+    rand = mulberry32(seed === null ? cryptoU32() : seed);
+    acc = 0;
+    ball = newBall();
+    trail = [];
+    running = true;
+    statusEl.textContent = 'ROLLING';
+    $('resultName').className = 'result-name idle';
+    $('resultName').textContent = '굴러가는 중…';
+    $('resultMeta').textContent = '';
+    renderChips();
+  }
+
+  function finish() {
+    running = false;
+    winner = slotOf(ball, items.length);
+    winAt = performance.now();
+    const name = items[winner];
+    statusEl.textContent = 'SLOT ' + (winner + 1);
+    const el = $('resultName');
+    el.className = 'result-name';
+    el.textContent = name;
+    void el.offsetWidth;
+    el.classList.add('pop');
+    const d = new Date();
+    const hhmm = String(d.getHours()).padStart(2, '0') + ':' + String(d.getMinutes()).padStart(2, '0');
+    $('resultMeta').textContent = (winner + 1) + '번 칸 · ' + items.length + '개 중 1개';
+    history.unshift({ name, time: hhmm });
+    history = history.slice(0, 10);
+    renderHistory();
+    if ($('optRemove').checked) {
+      pendingRemove = name;
+      $('resultMeta').textContent += ' · 다음 추첨 때 빠집니다';
+    }
+    renderChips();
+  }
+
+  function renderHistory() {
+    const ol = $('history');
+    ol.textContent = '';
+    history.forEach((h, i) => {
+      const li = document.createElement('li');
+      const n = document.createElement('span'); n.className = 'n'; n.textContent = '#' + (history.length - i);
+      const v = document.createElement('span'); v.className = 'v'; v.textContent = h.name; v.title = h.name;
+      const t = document.createElement('time'); t.textContent = h.time;
+      li.append(n, v, t);
+      ol.appendChild(li);
+    });
+    $('histCount').textContent = history.length ? history.length + '회' : '';
+    if (!history.length) {
+      const li = document.createElement('li');
+      li.innerHTML = '<span class="n">–</span><span class="v" style="color:var(--muted)">기록이 여기에 쌓입니다</span><time></time>';
+      ol.appendChild(li);
+    }
+  }
+
+  dropBtn.addEventListener('click', drop);
+  document.addEventListener('keydown', e => {
+    if (e.code === 'Space' && document.activeElement === document.body) { e.preventDefault(); drop(); }
+  });
+
+  // ---------- 렌더링 ----------
+  const dpr = Math.min(window.devicePixelRatio || 1, 3);
+  canvas.width = W * dpr;
+  canvas.height = H * dpr;
+
+  function fitText(text, maxW) {
+    if (ctx.measureText(text).width <= maxW) return text;
+    let s = text;
+    while (s.length > 1 && ctx.measureText(s + '…').width > maxW) s = s.slice(0, -1);
+    return s + '…';
+  }
+
+  function draw(now) {
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+    // 펠트 바탕
+    const g = ctx.createRadialGradient(W / 2, H * 0.4, 40, W / 2, H * 0.4, H * 0.75);
+    g.addColorStop(0, '#2a4a73');
+    g.addColorStop(1, '#172b45');
+    ctx.fillStyle = g;
+    ctx.fillRect(0, 0, W, H);
+
+    // 출발 구역
+    ctx.strokeStyle = 'rgba(226,182,90,.35)';
+    ctx.setLineDash([4, 6]);
+    ctx.beginPath(); ctx.moveTo(10, 52); ctx.lineTo(W - 10, 52); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = 'rgba(226,182,90,.7)';
+    ctx.font = '500 10px "IBM Plex Mono", monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('DROP ZONE · 출발 위치는 무작위', W / 2, 40);
+
+    // 슬롯
+    const n = items.length;
+    if (n > 0) {
+      const sw = W / n;
+      for (let i = 0; i < n; i++) {
+        const x0 = i * sw;
+        const col = SLOT_COLORS[i % SLOT_COLORS.length];
+        const isWin = i === winner;
+        let a = 0.22;
+        if (isWin) a = 0.55 + 0.35 * Math.abs(Math.sin((now - winAt) / 260));
+        ctx.globalAlpha = a;
+        ctx.fillStyle = col;
+        ctx.fillRect(x0, SLOT_TOP, sw, SLOT_H);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = col;
+        ctx.fillRect(x0 + 2, H - 5, sw - 4, 5);
+
+        // 라벨
+        ctx.save();
+        ctx.fillStyle = isWin ? '#ffffff' : 'rgba(255,255,255,.92)';
+        ctx.font = (isWin ? '700 ' : '500 ') + (sw < 40 ? 12 : 13) + 'px "IBM Plex Sans KR", sans-serif';
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        // 밝은 칸 색 위에서도 읽히도록 어두운 외곽선을 먼저 그린다
+        ctx.strokeStyle = 'rgba(12,22,38,.7)';
+        ctx.lineWidth = 3;
+        ctx.lineJoin = 'round';
+        const name = items[i];
+        if (sw >= 64 && ctx.measureText(name).width <= sw - 10) {
+          ctx.strokeText(name, x0 + sw / 2, SLOT_TOP + SLOT_H / 2 + 8);
+          ctx.fillText(name, x0 + sw / 2, SLOT_TOP + SLOT_H / 2 + 8);
+        } else {
+          ctx.translate(x0 + sw / 2, SLOT_TOP + SLOT_H / 2 + 8);
+          ctx.rotate(-Math.PI / 2);
+          const label = fitText(name, SLOT_H - 30);
+          ctx.strokeText(label, 0, 0);
+          ctx.fillText(label, 0, 0);
+        }
+        ctx.restore();
+        ctx.fillStyle = 'rgba(255,255,255,.5)';
+        ctx.font = '500 9px "IBM Plex Mono", monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(String(i + 1), x0 + sw / 2, SLOT_TOP + 12);
+      }
+    } else {
+      ctx.fillStyle = 'rgba(255,255,255,.6)';
+      ctx.font = '500 13px "IBM Plex Sans KR", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('항목을 추가하면 여기에 칸이 생깁니다', W / 2, SLOT_TOP + SLOT_H / 2);
+    }
+
+    // 칸막이
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = '#d9c08a';
+    ctx.lineWidth = R_DIV * 2;
+    for (const s of dividers) {
+      ctx.beginPath(); ctx.moveTo(s.x, s.y1); ctx.lineTo(s.x, s.y2); ctx.stroke();
+    }
+
+    // 핀
+    for (const p of pins) {
+      const age = now - p.hit;
+      if (age < 320) {
+        ctx.fillStyle = 'rgba(255,214,120,' + (0.55 * (1 - age / 320)).toFixed(3) + ')';
+        ctx.beginPath(); ctx.arc(p.x, p.y, R_PIN + 7 * (1 - age / 320) + 2, 0, Math.PI * 2); ctx.fill();
+      }
+      ctx.fillStyle = age < 160 ? '#ffe7a8' : '#d4a94c';
+      ctx.beginPath(); ctx.arc(p.x, p.y, R_PIN, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,.55)';
+      ctx.beginPath(); ctx.arc(p.x - 1, p.y - 1, 1.2, 0, Math.PI * 2); ctx.fill();
+    }
+
+    // 공 + 꼬리
+    if (ball) {
+      for (let i = 0; i < trail.length; i++) {
+        const t = trail[i];
+        ctx.fillStyle = 'rgba(230,236,245,' + (0.18 * (i + 1) / trail.length).toFixed(3) + ')';
+        ctx.beginPath(); ctx.arc(t.x, t.y, R_BALL * (0.4 + 0.6 * (i + 1) / trail.length), 0, Math.PI * 2); ctx.fill();
+      }
+      const bg = ctx.createRadialGradient(ball.x - 2.5, ball.y - 2.5, 1, ball.x, ball.y, R_BALL);
+      bg.addColorStop(0, '#ffffff');
+      bg.addColorStop(0.5, '#c9d3df');
+      bg.addColorStop(1, '#6f7c8c');
+      ctx.fillStyle = bg;
+      ctx.beginPath(); ctx.arc(ball.x, ball.y, R_BALL, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+
+  // ---------- 루프 (고정 시간 간격) ----------
+  let last = performance.now(), acc = 0, trailTick = 0;
+  function frame(now) {
+    let elapsed = Math.min(0.05, (now - last) / 1000);
+    last = now;
+    if (running && ball) {
+      const speed = $('optFast').checked || reduceMotion ? 2.2 : 1;
+      acc += elapsed * speed;
+      while (acc >= DT && running) {
+        step(ball, pins, dividers, DT, now, null);
+        if (settled(ball, DT)) finish();
+        acc -= DT;
+      }
+      if (++trailTick % 2 === 0) { trail.push({ x: ball.x, y: ball.y }); if (trail.length > 10) trail.shift(); }
+    } else {
+      acc = 0;
+      if (trail.length) trail.shift();
+    }
+    draw(now);
+    requestAnimationFrame(frame);
+  }
+
+  renderChips();
+  renderHistory();
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => draw(performance.now()));
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
